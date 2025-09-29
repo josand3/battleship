@@ -167,7 +167,7 @@ battleship/
 
 ## 🎓 Built For
 
-This project was developed as a production-ready demonstration for **Cognition AI job interview**, showcasing:
+This project was developed as a production-ready demonstration, showcasing:
 - Clean vanilla JavaScript implementation
 - Comprehensive bug fixing and QA testing
 - Mobile-first responsive design
