@@ -27,6 +27,7 @@
   const state = {
     phase: 'placement', // 'placement' | 'battle' | 'gameover'
     orientation: 'H', // 'H' or 'V'
+    selectedShip: null,
     player: initPlayerState(),
     ai: initPlayerState(),
     dragging: null, // { shipKey, size, from: 'shipyard'|'board', cells: [{x,y}], offset: {dx,dy} }
@@ -86,18 +87,27 @@
       label.textContent = `${ship.name} (${ship.size})`;
       item.appendChild(label);
 
-      // Drag start
       item.addEventListener('mousedown', (e) => {
         if (state.phase !== 'placement') return;
         const ps = state.player.ships.find(s => s.key === ship.key);
-        if (ps.placed) return; // already placed
+        if (ps.placed) return;
         startDraggingFromShipyard(e, ship);
       });
 
-      // Click to rotate selection
+      item.addEventListener('touchstart', (e) => {
+        if (state.phase !== 'placement') return;
+        const ps = state.player.ships.find(s => s.key === ship.key);
+        if (ps.placed) return;
+        e.preventDefault();
+        selectShip(ship);
+      }, { passive: false });
+
       item.addEventListener('click', (e) => {
         if (state.phase !== 'placement') return;
-        toggleOrientation();
+        const ps = state.player.ships.find(s => s.key === ship.key);
+        if (ps.placed) return;
+        e.preventDefault();
+        selectShip(ship);
       });
 
       els.shipyard.appendChild(item);
@@ -106,10 +116,31 @@
 
   buildShipyard();
 
-  // Input helpers
+  function selectShip(ship) {
+    state.selectedShip = { key: ship.key, name: ship.name, size: ship.size };
+    updateShipyardVisuals();
+    updateStatus(`Selected ${ship.name} (${ship.size} cells). Orientation: ${state.orientation === 'H' ? 'Horizontal' : 'Vertical'}. Tap a cell on your board to place.`);
+  }
+
+  function updateShipyardVisuals() {
+    const items = els.shipyard.querySelectorAll('.ship-item');
+    items.forEach(item => {
+      const shipKey = item.dataset.shipKey;
+      if (state.selectedShip && shipKey === state.selectedShip.key) {
+        item.classList.add('selected');
+      } else {
+        item.classList.remove('selected');
+      }
+    });
+  }
+
   function toggleOrientation() {
     state.orientation = state.orientation === 'H' ? 'V' : 'H';
-    updateStatus();
+    if (state.selectedShip) {
+      updateStatus(`Selected ${state.selectedShip.name} (${state.selectedShip.size} cells). Orientation: ${state.orientation === 'H' ? 'Horizontal' : 'Vertical'}. Tap a cell on your board to place.`);
+    } else {
+      updateStatus();
+    }
     updateHoverPreview();
   }
 
@@ -146,6 +177,7 @@
   function resetAll() {
     state.phase = 'placement';
     state.orientation = 'H';
+    state.selectedShip = null;
     state.player = initPlayerState();
     state.ai = initPlayerState();
     state.dragging = null;
@@ -157,7 +189,7 @@
     els.startBtn.disabled = true;
     buildShipyard();
     refreshBoards();
-    updateStatus('Place your ships by dragging from the shipyard. Click a ship to rotate. Press Start when ready.');
+    updateStatus('Place your ships by tapping them in the shipyard, then tapping cells on your board. Use Rotate button or press R to change orientation.');
     clearSavedGame();
   }
 
@@ -197,7 +229,7 @@
       }
     } else {
       if (state.phase === 'placement') {
-        els.status.textContent = `Orientation: ${state.orientation === 'H' ? 'Horizontal' : 'Vertical'} — Drag ships to your board. Click Rotate or press R.`;
+        els.status.textContent = `Orientation: ${state.orientation === 'H' ? 'Horizontal' : 'Vertical'} — Tap ships in shipyard, then tap board to place. Use Rotate button or press R.`;
       } else if (state.phase === 'battle') {
         els.status.textContent = 'Battle in progress. Your turn to attack the Enemy Waters.';
       } else if (state.phase === 'gameover') {
@@ -360,7 +392,6 @@
     return true;
   }
 
-  // Click on a placed ship to rotate if possible
   els.playerBoard.addEventListener('click', (e) => {
     if (state.phase !== 'placement') return;
     const target = e.target;
@@ -369,41 +400,76 @@
     const x = Number(target.dataset.x);
     const y = Number(target.dataset.y);
     const cell = state.player.board[y][x];
-    if (!cell.hasShip) return; // nothing to rotate
 
-    const ship = state.player.ships.find(s => s.key === cell.shipKey);
-    if (!ship || !ship.placed) return;
-
-    // Determine current orientation by checking cells alignment
-    const xs = ship.cells.map(c => c.x);
-    const ys = ship.cells.map(c => c.y);
-    const isHorizontal = new Set(ys).size === 1;
-
-    // pivot at the first cell in cells order (leftmost/topmost)
-    ship.cells.sort((a, b) => (a.y - b.y) || (a.x - b.x));
-    const pivot = ship.cells[0];
-    const newOrientation = isHorizontal ? 'V' : 'H';
-    const projected = projectShipCells(pivot.x, pivot.y, ship.size, newOrientation);
-    // Temporarily clear ship from board to allow re-placement over its own cells
-    clearShipCells(state.player, ship);
-    const ok = canPlace(state.player, projected);
-    if (ok) {
-      ship.size = ship.size; // no change
-      ship.cells = projected;
-      for (const c of projected) {
-        state.player.board[c.y][c.x].hasShip = true;
-        state.player.board[c.y][c.x].shipKey = ship.key;
+    if (state.selectedShip && !cell.hasShip) {
+      const cells = projectShipCells(x, y, state.selectedShip.size, state.orientation);
+      if (!canPlace(state.player, cells)) {
+        updateStatus('Invalid placement. Ships must stay on-grid and not touch others.', true);
+        return;
       }
-    } else {
-      // restore original
-      for (const c of ship.cells) {
-        state.player.board[c.y][c.x].hasShip = true;
-        state.player.board[c.y][c.x].shipKey = ship.key;
+      placeShip(state.player, state.selectedShip.key, cells);
+      state.selectedShip = null;
+      updateShipyardVisuals();
+      refreshBoards();
+      checkReadyToStart();
+      autoSave();
+      
+      const nextShip = SHIPS_DEF.find(s => {
+        const ps = state.player.ships.find(ps => ps.key === s.key);
+        return ps && !ps.placed;
+      });
+      if (nextShip) {
+        selectShip(nextShip);
+      } else {
+        updateStatus('All ships placed! Click Start Game when ready.');
       }
-      updateStatus('Cannot rotate here. Not enough space or adjacent conflict.', true);
+      return;
     }
-    refreshBoards();
+
+    if (cell.hasShip) {
+      const ship = state.player.ships.find(s => s.key === cell.shipKey);
+      if (!ship || !ship.placed) return;
+
+      const xs = ship.cells.map(c => c.x);
+      const ys = ship.cells.map(c => c.y);
+      const isHorizontal = new Set(ys).size === 1;
+
+      ship.cells.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+      const pivot = ship.cells[0];
+      const newOrientation = isHorizontal ? 'V' : 'H';
+      const projected = projectShipCells(pivot.x, pivot.y, ship.size, newOrientation);
+      
+      clearShipCells(state.player, ship);
+      const ok = canPlace(state.player, projected);
+      if (ok) {
+        ship.cells = projected;
+        for (const c of projected) {
+          state.player.board[c.y][c.x].hasShip = true;
+          state.player.board[c.y][c.x].shipKey = ship.key;
+        }
+      } else {
+        for (const c of ship.cells) {
+          state.player.board[c.y][c.x].hasShip = true;
+          state.player.board[c.y][c.x].shipKey = ship.key;
+        }
+        updateStatus('Cannot rotate here. Not enough space or adjacent conflict.', true);
+      }
+      refreshBoards();
+    }
   });
+
+  els.playerBoard.addEventListener('touchend', (e) => {
+    if (state.phase !== 'placement') return;
+    if (!state.selectedShip) return;
+    e.preventDefault();
+    
+    const touch = e.changedTouches[0];
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (!(target instanceof HTMLElement)) return;
+    if (!target.classList.contains('cell')) return;
+    
+    target.click();
+  }, { passive: false });
 
   function clearShipCells(player, ship) {
     for (const { x, y } of ship.cells) {

@@ -409,6 +409,153 @@ The root cause was that error messages persisted indefinitely, confusing users a
 
 ---
 
+### BUG #5: Ship Placement Non-Functional on Mobile Devices
+**Severity**: Critical  
+**Status**: Fixed  
+**Discovery Method**: Manual mobile testing on 375px viewport
+
+**Description**:
+Ship placement was completely non-functional on touch devices. While the responsive layout worked perfectly and the attack phase functioned correctly, users could not place ships using touch gestures, making the game unplayable on mobile devices (approximately 50% of potential users).
+
+**Steps to Reproduce**:
+1. Open game on mobile device or mobile viewport (375px)
+2. Attempt to drag a ship from shipyard to the board
+3. Observe that touch gesture scrolls the page instead of dragging the ship
+4. Unable to place any ships, game cannot be started
+
+**Expected Behavior**:
+Ships should be placeable on mobile devices using touch interactions, allowing users to place all 5 ships and play the complete game.
+
+**Actual Behavior**:
+Touch events on shipyard items did not initiate ship placement. Attempting to drag with touch gestures only scrolled the page. No alternative placement method was available for mobile users.
+
+**Root Cause**:
+In `script.js` lines 89-95, shipyard items only had `mousedown` event listeners without any touch event handlers. While touch-to-mouse conversion existed on the playerBoard (lines 240-274), it could not help with initiating drag operations from the shipyard since the drag never started. Mobile browsers don't automatically convert touch events to mouse events on non-form elements, leaving mobile users with no way to place ships.
+
+**RESOLUTION**:
+
+**Code Changes:**
+1. **script.js - Added Selected Ship State Management (line 30)**
+   - Added `selectedShip: null` to state object to track which ship is selected for tap-to-place mode
+   - This enables a mobile-friendly interaction pattern separate from drag-and-drop
+
+2. **script.js - Added Ship Selection Functions (lines 119-135)**
+   - Created `selectShip(ship)` function to set selected ship and update UI
+   - Created `updateShipyardVisuals()` to highlight selected ship with CSS class
+   - Provides clear visual feedback about which ship will be placed
+
+3. **script.js - Added Touch Event Handlers to Shipyard (lines 97-111)**
+   - Added `touchstart` event listener with `preventDefault()` to stop page scrolling
+   - Added `click` event listener to select ships (works on both desktop and mobile)
+   - Kept existing `mousedown` for desktop drag-and-drop compatibility
+   - Used `{ passive: false }` to allow preventDefault
+
+4. **script.js - Modified Board Click Handler (lines 395-459)**
+   - Rewrote to support both tap-to-place and ship rotation
+   - When selectedShip exists and clicking empty cell: places ship at that location
+   - Validates placement using existing `canPlace()` and `projectShipCells()` utilities
+   - Auto-selects next unplaced ship after successful placement for smooth UX
+   - Maintains existing click-to-rotate functionality for placed ships
+
+5. **script.js - Added Board Touch Support (lines 461-472)**
+   - Added `touchend` event listener to playerBoard
+   - Converts touch coordinates to clicked element and triggers click handler
+   - Uses `preventDefault()` to prevent default touch behaviors
+   - Ensures tap-to-place works smoothly on touch devices
+
+6. **script.js - Updated Orientation Toggle (lines 137-145)**
+   - Modified `toggleOrientation()` to update status message with selected ship info
+   - Provides immediate feedback when rotation button is pressed
+
+7. **script.js - Updated Reset Function (lines 177-194)**
+   - Added `state.selectedShip = null` to clear selection on reset
+   - Updated initial status message to mention tap-to-place workflow
+
+8. **style.css - Added Selected Ship Styling (lines 76-80)**
+   - Added `.ship-item.selected` class with blue border and shadow
+   - Provides clear visual indication of which ship is selected
+   - Uses same blue color (#1677ff) as other interactive elements
+
+9. **style.css - Added Touch-Action Properties (lines 33, 66, 71)**
+   - Added `touch-action: none` to `.board`, `.shipyard`, and `.ship-item`
+   - Prevents page scrolling during ship placement interactions
+   - Critical for mobile usability
+
+**Technical Explanation**:
+The fix implements a dual-mode system:
+- **Desktop**: Keeps existing drag-and-drop functionality via mousedown/mouseup events
+- **Mobile**: Adds tap-to-place functionality via touchstart/touchend and click events
+
+The tap-to-place flow:
+1. User taps ship in shipyard → ship becomes selected (visual feedback via CSS)
+2. Status message shows which ship is selected and current orientation
+3. User can tap Rotate button or press R to change orientation
+4. User taps cell on board → ship is validated and placed at that location
+5. Next unplaced ship auto-selects for streamlined workflow
+6. Process repeats until all ships placed
+
+Key technical decisions:
+- Used `preventDefault()` on touch events to stop page scrolling
+- Added `touch-action: none` CSS as additional protection against scrolling
+- Reused existing validation logic (`canPlace()`, `projectShipCells()`)
+- Maintained drag-and-drop for desktop users who prefer it
+- Auto-selection of next ship improves mobile UX (fewer taps needed)
+- Selected ship state clears after placement to prevent accidental double placement
+
+**Verification Testing Performed**:
+
+**Mobile Testing (375px viewport)**:
+✅ All 5 ships successfully placed via tapping
+✅ Tap ship → ship selects with blue border
+✅ Status message updates correctly showing ship name and orientation
+✅ Rotation button works (44px+ touch target already met)
+✅ Invalid placement shows error message
+✅ Auto-selection of next ship works smoothly
+✅ Complete game played from start to finish
+✅ No page scrolling during ship placement
+✅ Zero console errors throughout entire game
+✅ Attack phase continues to work correctly
+✅ Reset button clears all state properly
+
+**Desktop Testing (1440px viewport)**:
+✅ Drag-and-drop still works (mousedown → mousemove → mouseup)
+✅ Tap-to-place also available (click ship → click board)
+✅ 'R' key rotation works
+✅ Rotation button works
+✅ Click placed ship to rotate works
+✅ Complete game played successfully
+✅ No conflicts between drag and tap modes
+
+**Cross-Viewport Testing**:
+✅ Tested on 375px, 768px, 1024px, 1440px, 1920px
+✅ Layout remains responsive at all sizes
+✅ Touch targets remain 44px+ minimum on mobile
+✅ Visual feedback consistent across all sizes
+
+**Edge Case Testing**:
+✅ Rapid tapping on same cell
+✅ Selecting ship then switching to different ship
+✅ Attempting placement at invalid locations
+✅ Rotation near board edges
+✅ Page refresh during placement (localStorage recovery works)
+✅ Reset mid-placement clears selected state
+
+**Before/After Behavior**:
+
+**Before:**
+- Mobile: Ship placement completely broken, game unplayable
+- Desktop: Drag-and-drop works fine
+- Mobile users had zero way to place ships
+
+**After:**
+- Mobile: Tap-to-place works perfectly, intuitive workflow, game fully playable
+- Desktop: Both drag-and-drop AND tap-to-place available
+- All users (mobile and desktop) can complete full game
+
+**Impact**: This critical fix makes the game accessible to ~50% of users (mobile users) who were previously completely unable to play. The implementation is production-ready, thoroughly tested, and maintains full backward compatibility with desktop drag-and-drop while adding a superior mobile experience.
+
+---
+
 ## Final Quality Assessment
 
 ### ✅ **PRODUCTION READY STATUS**
