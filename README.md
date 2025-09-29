@@ -7,7 +7,7 @@ Mobile-responsive Battleship with intelligent AI, built with AI-assisted develop
 
    ## ✨ Features
 
-A fully responsive, vanilla JavaScript implementation of the classic Battleship naval strategy game. **Production-ready** with comprehensive bug fixes and extensive cross-device testing.
+A fully responsive, vanilla JavaScript implementation rop ship placement didn't work on touch devices - only mouse events were implementedof the classic Battleship naval strategy game. **Production-ready** with comprehensive bug fixes and extensive cross-device testing.
 
 [![Production Ready](https://img.shields.io/badge/status-production%20ready-brightgreen)](https://github.com/josand3/battleship)
 [![Mobile Optimized](https://img.shields.io/badge/mobile-optimized-blue)](https://github.com/josand3/battleship)
@@ -99,7 +99,7 @@ This production-ready version includes **5 critical bug fixes** with comprehensi
 - **Result**: Smart message handling with proper clearing logic
 
 ### ✅ Bug #5: Ship Placement Non-Functional on Mobile (CRITICAL) - FIXED
-- **Issue**: Touch gestures didn't work for ship placement, making game unplayable on mobile
+- **Issue**: Drag-and-drop ship placement didn't work on touch devices - only mouse events were implemented
 - **Fix**: Implemented tap-to-place system with touch event handlers and visual feedback
 - **Result**: Perfect mobile ship placement with intuitive tap-to-place workflow
 
@@ -140,6 +140,7 @@ battleship/
 - ✅ **Device testing**: Comprehensive testing from 375px to 1920px widths
 - ✅ **Error monitoring**: Zero JavaScript errors or warnings detected
 - ✅ **Performance**: Multi-game stability verified, no memory leaks
+- ✅ **Manual mobile testing**: Discovered critical touch interaction bug through hands-on testing
 
 ### Feature Verification
 - ✅ Ship placement works on all devices (drag, click, tap)
