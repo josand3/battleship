@@ -1,4 +1,11 @@
 # 🚢 Battleship Game - Production Ready
+Mobile-responsive Battleship with intelligent AI, built with AI-assisted development.
+
+   ## 🚀 Live Demo
+
+   **[Play the Game Here](https://battleship-game-app-0g93zfrf.devinapps.com)** - No installation required!
+
+   ## ✨ Features
 
 A fully responsive, vanilla JavaScript implementation of the classic Battleship naval strategy game. **Production-ready** with comprehensive bug fixes and extensive cross-device testing.
 
