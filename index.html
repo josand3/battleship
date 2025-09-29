@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Battleship</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>Battleship</h1>
+      <div class="controls">
+        <button id="rotateBtn" title="Rotate selected ship (R)">Rotate</button>
+        <button id="randomizeBtn" title="Randomly place your ships">Randomize</button>
+        <button id="startBtn" class="primary" title="Start the battle" disabled>Start Game</button>
+        <button id="resetBtn" title="Reset everything">Reset</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="left">
+        <h2>Your Fleet</h2>
+        <div id="playerBoard" class="board" aria-label="Player Board"></div>
+        <div id="shipyard" class="shipyard" aria-label="Shipyard - drag ships to your board">
+          <!-- Ships will be injected by JS -->
+        </div>
+      </section>
+
+      <section class="right">
+        <h2>Enemy Waters</h2>
+        <div id="aiBoard" class="board disabled" aria-label="AI Board (click to attack)"></div>
+        <div class="legend">
+          <div class="legend-item"><span class="cell water"></span> Water</div>
+          <div class="legend-item"><span class="cell ship"></span> Ship</div>
+          <div class="legend-item"><span class="cell hit"></span> Hit</div>
+          <div class="legend-item"><span class="cell miss"></span> Miss</div>
+          <div class="legend-item"><span class="cell sunk"></span> Sunk</div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div id="status" class="status">Place your ships by dragging from the shipyard. Click a ship to rotate. Press Start when ready.</div>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
